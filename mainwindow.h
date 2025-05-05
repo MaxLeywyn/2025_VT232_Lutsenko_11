@@ -15,7 +15,7 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget *parent = nullptr);
+    MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
 private slots:
@@ -25,6 +25,9 @@ private slots:
     void onCopyButtonClicked();
     void onUpButtonClicked();
     void onHomeButtonClicked();
+    void on_upDestButton_clicked();
+
+
 
 private:
     Ui::MainWindow *ui;

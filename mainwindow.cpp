@@ -30,6 +30,9 @@ MainWindow::MainWindow(QWidget *parent)
             this, &MainWindow::onUpButtonClicked);
     connect(ui->homeButton, &QPushButton::clicked,
             this, &MainWindow::onHomeButtonClicked);
+    connect(ui->upButton, &QPushButton::clicked,
+            this, &MainWindow::onUpButtonClicked);
+
 }
 
 MainWindow::~MainWindow()
@@ -226,6 +229,16 @@ void MainWindow::copyFiles(const QStringList &files, const QString &destination)
 }
 
 
-
+void MainWindow::on_upDestButton_clicked()
+{
+    QDir dir(currentDestinationPath);
+    if (dir.cdUp()) {
+        currentDestinationPath = dir.path();
+        ui->destinationPathEdit->setText(currentDestinationPath);
+        fileModel->setRootPath(currentDestinationPath);
+        ui->fileListView->setRootIndex(fileModel->index(currentDestinationPath));
+        ui->destinationDirView->setRootIndex(dirModel->index(currentDestinationPath));
+    }
+}
 
 
