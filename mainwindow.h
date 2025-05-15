@@ -38,7 +38,7 @@ private:
     QString currentDestinationPath;
 
     void setupFileSystem();
-    void copyFiles(const QStringList &files, const QString &destination);
+    bool copyFiles(const QStringList &files, const QString &destination, int &successCount, int &errorCount);
 };
 
 #endif // MAINWINDOW_H

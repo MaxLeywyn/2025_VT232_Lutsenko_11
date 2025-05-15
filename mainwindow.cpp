@@ -63,6 +63,7 @@ void MainWindow::setupFileSystem()
     ui->destinationPathEdit->setText(homePath);
 }
 
+
 void MainWindow::onSourceDirectoryChanged(const QModelIndex &index)
 {
     QString path = dirModel->filePath(index);
@@ -115,61 +116,36 @@ void MainWindow::onCopyButtonClicked()
         return;
     }
 
-    // Проверка доступности целевой директории
     QDir destDir(currentDestinationPath);
     if (!destDir.exists()) {
         QMessageBox::warning(this, "Ошибка", "Целевая директория не существует");
         return;
     }
 
-    int successCount = 0;
-    int errorCount = 0;
-
+    // Проверка и подтверждение перезаписи
+    QStringList filesToCopy;
     foreach (const QString &filePath, selectedFiles) {
         QFileInfo fileInfo(filePath);
         QString destinationPath = currentDestinationPath + "/" + fileInfo.fileName();
 
-        // Проверка на существование файла в целевой директории
         if (QFile::exists(destinationPath)) {
-            QMessageBox::StandardButton reply;
-            reply = QMessageBox::question(this, "Подтверждение",
-                                          QString("Файл %1 уже существует. Перезаписать?").arg(fileInfo.fileName()),
-                                          QMessageBox::Yes|QMessageBox::No);
-            if (reply == QMessageBox::No) {
-                errorCount++;
-                continue;
-            }
+            QMessageBox::StandardButton reply = QMessageBox::question(
+                this, "Подтверждение",
+                QString("Файл %1 уже существует. Перезаписать?").arg(fileInfo.fileName()),
+                QMessageBox::Yes|QMessageBox::No);
+            if (reply == QMessageBox::No) continue;
             QFile::remove(destinationPath);
         }
-
-        // Копирование с использованием умного указателя
-        smart_ptr<QFile> sourceFile(new QFile(filePath));
-        if (!sourceFile->open(QIODevice::ReadOnly)) {
-            qDebug() << "Не удалось открыть файл для чтения:" << filePath;
-            errorCount++;
-            continue;
-        }
-
-        smart_ptr<QFile> destFile(new QFile(destinationPath));
-        if (!destFile->open(QIODevice::WriteOnly)) {
-            qDebug() << "Не удалось открыть файл для записи:" << destinationPath;
-            errorCount++;
-            continue;
-        }
-
-        // Копирование данных блоками
-        while (!sourceFile->atEnd()) {
-            QByteArray data = sourceFile->read(8192);
-            if (destFile->write(data) != data.size()) {
-                errorCount++;
-                break;
-            }
-        }
-        successCount++;
+        filesToCopy.append(filePath);
     }
 
-    // Отчет о результатах копирования
-    if (errorCount > 0) {
+    // Основное копирование
+    int successCount = 0;
+    int errorCount = 0;
+    bool allSuccess = copyFiles(filesToCopy, currentDestinationPath, successCount, errorCount);
+
+    // Отчет о результатах
+    if (!allSuccess) {
         QMessageBox::information(this, "Результат",
                                  QString("Скопировано %1 файлов, %2 ошибок").arg(successCount).arg(errorCount));
     } else {
@@ -201,33 +177,46 @@ void MainWindow::onHomeButtonClicked()
     ui->sourceDirView->setRootIndex(dirModel->index(homePath));
 }
 
-void MainWindow::copyFiles(const QStringList &files, const QString &destination)
+bool MainWindow::copyFiles(const QStringList &files, const QString &destination, int &successCount, int &errorCount)
 {
+    successCount = 0;
+    errorCount = 0;
+
     foreach (const QString &filePath, files) {
         QFileInfo fileInfo(filePath);
         QString destinationPath = destination + "/" + fileInfo.fileName();
 
-        // Использование умного указателя для QFile
         smart_ptr<QFile> sourceFile(new QFile(filePath));
         if (!sourceFile->open(QIODevice::ReadOnly)) {
             qDebug() << "Не удалось открыть файл для чтения:" << filePath;
+            errorCount++;
             continue;
         }
 
         smart_ptr<QFile> destFile(new QFile(destinationPath));
         if (!destFile->open(QIODevice::WriteOnly)) {
             qDebug() << "Не удалось открыть файл для записи:" << destinationPath;
+            errorCount++;
             continue;
         }
 
-        // Копирование данных
+        bool copyError = false;
         while (!sourceFile->atEnd()) {
             QByteArray data = sourceFile->read(8192);
-            destFile->write(data);
+            if (destFile->write(data) != data.size()) {
+                errorCount++;
+                copyError = true;
+                break;
+            }
+        }
+
+        if (!copyError) {
+            successCount++;
         }
     }
-}
 
+    return (errorCount == 0);
+}
 
 void MainWindow::on_upDestButton_clicked()
 {
